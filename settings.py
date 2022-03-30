@@ -8,13 +8,13 @@
 IP_POOL_KEY = 'open_proxy_pool'
 
 # redis连接，根据实际情况进行配置
-REDIS_SERVER_URL = 'redis://:your_password@your_host:port/db_name'
+REDIS_SERVER_URL = "redis://:your_password@127.0.0.1:6379/0"
 
 # api对外端口
 API_WEB_PORT = 9102
 
 # 代理是否需要通过密码访问,当此项为False时可无视USERNAME和PASSWORD的配置
-USE_PASSWORD = True
+USE_PASSWORD = False
 
 # 用户名
 # 注意：用户名密码是指代理服务方提供给你，用以验证访问授权的凭证。
@@ -41,14 +41,14 @@ IP_GETTER_OPENED = True
 # ***********************************
 
 # 清理代理ip的频率，如下配置代表每两次之间间隔6秒
-CLEAN_INTERVAL = 6
+CLEAN_INTERVAL = 3000
 
 # 获取代理ip的频率，根据api的请求频率限制进行设置
 # 比如`站大爷`的频率限制是10秒一次，我就设置成了12秒
-FETCH_INTERVAL = 12
+FETCH_INTERVAL = 3600
 
 # squid从redis中加载新ip的频率
-SQUID_KEEPER_INTERVAL = 12
+SQUID_KEEPER_INTERVAL = 1200
 
 # 代理ip的生命周期，即一个新ip在多久后将被删除，单位：秒
-PROXY_IP_TTL = 60
+PROXY_IP_TTL = 3600

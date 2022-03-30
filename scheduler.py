@@ -28,6 +28,7 @@ class Scheduler:
                 ZdyIpGetter().main()
             except Exception as e:
                 print(e.args)
+                # raise e
 
     @staticmethod
     def clean_ip():

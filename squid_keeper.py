@@ -46,9 +46,12 @@ class SquidKeeper:
         with open('squid.conf', 'r') as f:
             squid_conf = f.readlines()
         squid_conf.append('\n# Cache peer config\n')
-        for proxy in proxy_list:
+        i=0
+        for proxy in set(proxy_list):
             ip, port = proxy.decode('utf8').split(':')
-            squid_conf.append(self.peer_conf % (ip, port))
+            nl=self.peer_conf % (ip, port)
+            squid_conf.append(nl[:-1]+' name=proxy-'+str(i)+'\n')
+            i+=1
         with open('/etc/squid/squid.conf', 'w') as f:
             f.writelines(squid_conf)
         failed = os.system('squid -k reconfigure')
@@ -78,6 +81,8 @@ class SquidKeeper:
         使其使用最新的代理ip
         :return:
         """
+        proxy_list = self.read_new_ip()
+        self.update_conf(proxy_list)
         while True:
             proxy_list = self.read_new_ip()
             self.update_conf(proxy_list)

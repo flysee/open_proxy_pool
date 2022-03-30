@@ -4,13 +4,17 @@
 # @Date  : 18-12-14 上午10:44
 # @Desc  : 从指定网站上获取代理ip,
 #          我目前在使用站大爷，就以站大爷为例
-
+from gevent import monkey
+monkey.patch_all()
+# 搜maximum recursion depth exceeded是说迭代问题，这是正确的。但代码里没看见什么嵌套的迭代
+# 加上requests搜索：https://stackoverflow.com/questions/49820173/requests-recursionerror-maximum-recursion-depth-exceeded
+# 结果monkey.patch_all()要放requests前面
 import requests
 import time
 import utils
 import settings
 from gevent.pool import Pool
-from gevent import monkey
+import json
 
 monkey.patch_all()
 
@@ -47,16 +51,46 @@ class ZdyIpGetter:
         }
         try:
             # 验证代理是否可用时，访问的是ip138的服务
-            resp = requests.get('http://2019.ip138.com/ic.asp', proxies=proxies, timeout=10)
+            # resp = requests.get('http://2019.ip138.com/ic.asp', proxies=proxies, timeout=10)
             # self.logger.info(resp.content.decode('gb2312'))
-            # 判断是否成功使用代理ip进行访问
-            assert proxy.split(':')[0] in resp.content.decode('gb2312')
-            self.logger.info('[GOOD] - {}'.format(proxy))
+            # # 判断是否成功使用代理ip进行访问
+            # if 'IP:' in resp:
+            #     self.logger.info('[GOOD] - {}'.format(proxy))
             self.good_proxy_list.append(proxy)
         except Exception as e:
             self.logger.info('[BAD] - {} , {}'.format(proxy, e.args))
 
     def get_proxy_list(self):
+        """
+        提取一批ip，筛选出可用的部分
+        注：当可用ip小于两个时，则保留全部ip（不论测试成功与否）
+        :return:
+        """
+        while True:
+            try:
+                res = requests.get(self.api_url, timeout=10).content.decode('utf8')
+                break
+            except Exception as e:
+                self.logger.error('获取代理列表失败！重试！{}'.format(e))
+                time.sleep(1)
+        if len(res) == 0:
+            self.logger.error('未获取到数据！')
+        # 检测未考虑到的异常情况
+
+        else:
+            self.logger.info('开始读取代理列表！')
+            res1 = json.loads(res)
+            for line in res1['Data']:
+                ip1=line['ip'] + ':' + str(line['port'])
+                self.proxy_list.append(ip1)
+            self.pool.map(self.check_proxy, self.proxy_list)
+            self.pool.join()
+            # 当本次检测可用代理数量小于2个时，则认为检测失败，代理全部可用
+            if len(self.good_proxy_list) < 2:
+                self.good_proxy_list = self.proxy_list.copy()
+            self.logger.info('>>>> 完成! <<<<')
+
+    def get_proxy_list_bak(self):
         """
         提取一批ip，筛选出可用的部分
         注：当可用ip小于两个时，则保留全部ip（不论测试成功与否）
@@ -95,7 +129,10 @@ class ZdyIpGetter:
         :return:
         """
         for proxy in self.good_proxy_list:
-            self.server.zadd(settings.IP_POOL_KEY, int(time.time()) + settings.PROXY_IP_TTL, proxy)
+            # self.server.zadd(settings.IP_POOL_KEY, int(time.time()) + settings.PROXY_IP_TTL, proxy)
+            mapping = {proxy: int(time.time()) + settings.PROXY_IP_TTL}
+            self.server.zadd(settings.IP_POOL_KEY, mapping)
+    #         https://blog.csdn.net/mygodit/article/details/86689127
 
     def fetch_new_ip(self):
         """
@@ -112,6 +149,7 @@ class ZdyIpGetter:
         周期获取新ip
         :return:
         """
+        self.fetch_new_ip()
         start = time.time()
         while True:
             # 每 settings.FETCH_INTERVAL 秒获取一批新IP
